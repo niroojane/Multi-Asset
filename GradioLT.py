@@ -129,7 +129,7 @@ def optimize():
     
 with gr.Blocks(css="* { font-family: 'Arial Narrow', sans-serif; }") as app:    
     
-    gr.Markdown("## Portfolio Constraint Builder & Optimizer")
+    gr.Markdown("## Rebalancing Optimizer")
 
     # Define UI elements first
     file_input = gr.File(label="Upload Excel File (.xlsx)")
