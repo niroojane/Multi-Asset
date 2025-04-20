@@ -122,6 +122,7 @@ def optimize():
     initial = pd.DataFrame(w0, index=full_matrix.index, columns=["Initial"])
     optimal = pd.DataFrame(opt_weights, index=full_matrix.index, columns=["Optimised"])
     res = pd.concat([initial, optimal], axis=1)
+    res['Variation']=res['Optimised']-res['Initial']
 
     # return res, res.T @ full_matrix.round(4).T
 
