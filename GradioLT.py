@@ -3,7 +3,6 @@
 
 # In[2]:
 
-
 import gradio as gr
 from datetime import datetime
 import pandas as pd
@@ -25,7 +24,7 @@ constraints_options = []
 data = pd.DataFrame(columns=["Asset", "Sign", "Limit"])
 
 def load_excel(file):
-    global full_matrix, full_matrix_numpy, w0, drop_down_list, drop_down_list_sector, drop_down_list_asset, constraints_options
+    global full_matrix, full_matrix_numpy, w0, drop_down_list, drop_down_list_sector, drop_down_list_asset, constraints_options,bounds_sectors_dataframe
 
     try:
         file = pd.ExcelFile(file.name)
@@ -56,12 +55,24 @@ def load_excel(file):
         drop_down_list_sector = list(full_matrix.columns)
         drop_down_list = drop_down_list_asset + drop_down_list_sector + [None]
         constraints_options = ["=", "≥", "≤"]
+        bounds_sectors={}
 
+        for col in full_matrix.columns:
+            min_bounds=round(full_matrix[col].min(),4)
+            max_bounds=round(full_matrix[col].max(),4)
+        
+            bounds_sectors[col]=[min_bounds,max_bounds]
+
+        bounds_sectors_dataframe=pd.DataFrame(bounds_sectors,index=['Lower Bound','Upper Bound']).T.round(4).reset_index().rename(columns={'index': 'Sectors'})
+        
         return "File uploaded successfully!",gr.update(choices=drop_down_list)
 
     except Exception as e:
         return f"Error: {str(e)}", gr.update(choices=[])
 
+def transparency_matrices():
+
+    return full_matrix.reset_index().rename(columns={'index': 'Asset'}).round(4),bounds_sectors_dataframe
 
 def submit(value1, value2, value3):
     global data, constraints
@@ -70,9 +81,11 @@ def submit(value1, value2, value3):
     data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
 
     constraint_matrix = pd.DataFrame(data).to_numpy()
-    constraints = []
+    
+    constraints = [{'type': 'eq', 'fun': sum_equal_one}]
+    
     dico_map = {'=': 'eq', '≥': 'ineq', '≤': 'ineq'}
-
+    
     try:
         for row in range(constraint_matrix.shape[0]):
             temp = constraint_matrix[row, :]
@@ -126,49 +139,63 @@ def optimize():
 
     # return res, res.T @ full_matrix.round(4).T
 
-    return res.reset_index().rename(columns={'index': 'Asset'}).round(4), (res.T@full_matrix).T.reset_index().round(4)
+    return res.reset_index().rename(columns={'index': 'Asset'}).round(4), (res.T@full_matrix).T.reset_index().rename(columns={'index': 'Sectors'}).round(4)
     
 with gr.Blocks(css="* { font-family: 'Arial Narrow', sans-serif; }") as app:    
+
+    with gr.Tab("Rebalancing Optimizer"):
+        gr.Markdown("## Rebalancing Optimizer")
     
-    gr.Markdown("## Rebalancing Optimizer")
-
-    # Define UI elements first
-    file_input = gr.File(label="Upload Excel File (.xlsx)")
-    file_status = gr.Textbox(label="Status", interactive=False)
-    asset_dropdown = gr.Dropdown(choices=drop_down_list, label="Asset or Sector")  # << Move this up
-    sign_dropdown = gr.Dropdown(choices=["=", "≥", "≤"], label="Sign")
-    limit_input = gr.Number(label="Limit (Float)")
-
-    file_input.change(load_excel, inputs=file_input, outputs=[file_status, asset_dropdown])
-
-    # Button to submit constraint
-    submit_button = gr.Button("Add Constraint")
-    reset_button = gr.Button("Reset Constraints")
-    constraints_table = gr.Dataframe(headers=["Asset", "Sign", "Limit"], interactive=False)
+        # Define UI elements first
+        file_input = gr.File(label="Upload Excel File (.xlsx)")
+        file_status = gr.Textbox(label="Status", interactive=False)
+        asset_dropdown = gr.Dropdown(choices=drop_down_list, label="Asset or Sector")  # << Move this up
+        sign_dropdown = gr.Dropdown(choices=["=", "≥", "≤"], label="Sign")
+        limit_input = gr.Number(label="Limit (Float)")
     
-    submit_button.click(
-        submit,
-        inputs=[asset_dropdown, sign_dropdown, limit_input],
-        outputs=[constraints_table]
-    )
+        file_input.change(load_excel, inputs=file_input, outputs=[file_status, asset_dropdown])
     
-    reset_button.click(
-        reset_constraints,
-        outputs=[constraints_table]
-    )
+        # Button to submit constraint
+        submit_button = gr.Button("Add Constraint")
+        reset_button = gr.Button("Reset Constraints")
+        constraints_table = gr.Dataframe(headers=["Asset", "Sign", "Limit"], interactive=False)
+        
+        submit_button.click(
+            submit,
+            inputs=[asset_dropdown, sign_dropdown, limit_input],
+            outputs=[constraints_table]
+        )
+        
+        reset_button.click(
+            reset_constraints,
+            outputs=[constraints_table]
+        )
+    
+    
+        # Optimize
+        optimize_button = gr.Button("Optimize Portfolio")
+        weights_output = gr.Dataframe(label="Optimized Weights")
+        exposure_output = gr.Dataframe(label="Optimized Sector Exposure")
+    
+        optimize_button.click(optimize, outputs=[weights_output,exposure_output])
 
+    with gr.Tab("Transparency Matrix"):
+        
+        transparency_matrix = gr.Dataframe(headers=["Sectors", "Lower Bound", "Upper Bound"], interactive=False)
+        bound_matrix = gr.Dataframe(label="Sectors Bounds")
+        
+        show_bounds = gr.Button("Underlying Exposure")
 
-    # Optimize
-    optimize_button = gr.Button("Optimize Portfolio")
-    weights_output = gr.Dataframe(label="Optimized Weights")
-    exposure_output = gr.Dataframe(label="Optimized Sector Exposure")
+        show_bounds.click(transparency_matrices, outputs=[transparency_matrix,bound_matrix])
 
-    optimize_button.click(optimize, outputs=[weights_output,exposure_output])
-
+        
 app.launch()
 
 
 # In[ ]:
+
+
+
 
 
 
