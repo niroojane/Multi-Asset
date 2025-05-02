@@ -7,6 +7,7 @@ import gradio as gr
 from datetime import datetime
 import pandas as pd
 import numpy as np
+import os
 from scipy.optimize import minimize
 from RiskMetrics import RiskAnalysis, diversification_constraint, create_constraint
 from Rebalancing import rebalanced_portfolio, buy_and_hold
@@ -60,10 +61,12 @@ def load_excel(file):
         for col in full_matrix.columns:
             min_bounds=round(full_matrix[col].min(),4)
             max_bounds=round(full_matrix[col].max(),4)
-        
-            bounds_sectors[col]=[min_bounds,max_bounds]
+            name_max=full_matrix[col].idxmax()
+            name_min=full_matrix[col].idxmin()
 
-        bounds_sectors_dataframe=pd.DataFrame(bounds_sectors,index=['Lower Bound','Upper Bound']).T.round(4).reset_index().rename(columns={'index': 'Sectors'})
+            bounds_sectors[col]=[min_bounds,max_bounds,name_min,name_max]
+
+        bounds_sectors_dataframe=pd.DataFrame(bounds_sectors,index=['Lower Bound','Upper Bound','Name Min','Name Max']).T.round(4).reset_index().rename(columns={'index': 'Sectors'})
         
         return "File uploaded successfully!",gr.update(choices=drop_down_list)
 
