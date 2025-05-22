@@ -133,27 +133,6 @@ def reset_constraints():
     constraints = []
     return data
 
-# def optimize():
-#     global opt_weights, res
-    
-#     bounds = [(0, 1) for _ in range(full_matrix.shape[0])]
-
-#     if constraints:
-#         result = minimize(objective, w0, method="SLSQP", bounds=bounds, constraints=constraints)
-#     else:
-#         result = minimize(objective, w0, method="SLSQP", bounds=bounds, constraints=[])
-        
-#     opt_weights = result.x
-
-#     initial = pd.DataFrame(w0, index=full_matrix.index, columns=["Initial"])
-#     optimal = pd.DataFrame(opt_weights, index=full_matrix.index, columns=["Optimised"])
-#     res = pd.concat([initial, optimal], axis=1)
-#     # res['Variation']=res['Optimised']-res['Initial']
-
-#     # return res, res.T @ full_matrix.round(4).T
-
-#     return res.reset_index().rename(columns={'index': 'Asset'}).round(4), (res.T@full_matrix).T.reset_index().rename(columns={'index': 'Sectors'}).round(4)
-
 def add_allocation(new_allocation):
     
     global opt_weights,res
@@ -188,24 +167,24 @@ def add_allocation(new_allocation):
         res = pd.concat([initial, optimal,new_allocation_weights], axis=1)    
         
         change=res.copy()
-    
+
         for col in change.columns:
     
-            change[col]=change['Initial']-change[col]
-            
-        return res.reset_index().rename(columns={'index': 'Asset'}).round(4), (res.T@full_matrix).T.reset_index().rename(columns={'index': 'Sectors'}).round(4),(change.T@full_matrix).T.reset_index().rename(columns={'index': 'Sectors'}).round(4)
+            change[col]=res[col]-res['Initial']
+
+        return res.reset_index().rename(columns={'index': 'Asset'}).round(4), change.reset_index().rename(columns={'index': 'Asset'}).round(4),(res.T@full_matrix).T.reset_index().rename(columns={'index': 'Sectors'}).round(4),(change.T@full_matrix).T.reset_index().rename(columns={'index': 'Sectors'}).round(4)
         
     except Exception as e:
 
         res = pd.concat([initial, optimal], axis=1)    
     
         change=res.copy()
-    
+
         for col in change.columns:
     
-            change[col]=change['Initial']-change[col]
-            
-        return res.reset_index().rename(columns={'index': 'Asset'}).round(4), (res.T@full_matrix).T.reset_index().rename(columns={'index': 'Sectors'}).round(4),(change.T@full_matrix).T.reset_index().rename(columns={'index': 'Sectors'}).round(4)
+            change[col]=res[col]-res['Initial']
+
+        return res.reset_index().rename(columns={'index': 'Asset'}).round(4),change.reset_index().rename(columns={'index': 'Asset'}).round(4),(res.T@full_matrix).T.reset_index().rename(columns={'index': 'Sectors'}).round(4),(change.T@full_matrix).T.reset_index().rename(columns={'index': 'Sectors'}).round(4)
         
 def clear_allocation():
     
@@ -220,9 +199,9 @@ def clear_allocation():
 
     for col in change.columns:
 
-        change[col]=change['Initial']-change[col]
+        change[col]=res[col]-res['Initial']
 
-    return res.reset_index().rename(columns={'index': 'Asset'}).round(4), (res.T@full_matrix).T.reset_index().rename(columns={'index': 'Sectors'}).round(4),(change.T@full_matrix).T.reset_index().rename(columns={'index': 'Sectors'}).round(4)
+    return res.reset_index().rename(columns={'index': 'Asset'}).round(4), change.reset_index().rename(columns={'index': 'Asset'}).round(4),(res.T@full_matrix).T.reset_index().rename(columns={'index': 'Sectors'}).round(4),(change.T@full_matrix).T.reset_index().rename(columns={'index': 'Sectors'}).round(4)
 
 
 with gr.Blocks(css="* { font-family: 'Arial Narrow', sans-serif; }") as app:    
@@ -264,14 +243,15 @@ with gr.Blocks(css="* { font-family: 'Arial Narrow', sans-serif; }") as app:
         new_allocation_input = gr.Textbox(label="Enter Allocation (comma separated)")
 
         weights_output = gr.Dataframe(label="Optimized Weights")
+        delta_output = gr.Dataframe(label="Variation of weights")
         exposure_output = gr.Dataframe(label="Optimized Sector Exposure")
         change_output=gr.Dataframe(label='Sector Change')
         # optimize_button.click(optimize, outputs=[weights_output,exposure_output])
 
         
-        clear_allocation_button.click(fn=clear_allocation, inputs=[], outputs=[weights_output,exposure_output,change_output])
-        new_allocation_input.submit(fn=add_allocation, inputs=new_allocation_input, outputs=[weights_output,exposure_output,change_output])
-        optimize_button.click(fn=add_allocation, inputs=new_allocation_input, outputs=[weights_output,exposure_output,change_output])
+        clear_allocation_button.click(fn=clear_allocation, inputs=[], outputs=[weights_output,delta_output,exposure_output,change_output])
+        new_allocation_input.submit(fn=add_allocation, inputs=new_allocation_input, outputs=[weights_output,delta_output,exposure_output,change_output])
+        optimize_button.click(fn=add_allocation, inputs=new_allocation_input, outputs=[weights_output,delta_output,exposure_output,change_output])
         
 
     with gr.Tab("Transparency Matrix"):
@@ -282,7 +262,6 @@ with gr.Blocks(css="* { font-family: 'Arial Narrow', sans-serif; }") as app:
         show_bounds = gr.Button("Underlying Exposure")
 
         show_bounds.click(transparency_matrices, outputs=[transparency_matrix,bound_matrix])
-
         
 app.launch()
 
